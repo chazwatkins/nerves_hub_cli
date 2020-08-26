@@ -205,6 +205,9 @@ defmodule Mix.Tasks.NervesHub.Device do
       ["cert", "create", device] ->
         cert_create(org, product, device, opts)
 
+      ["cert", "import", device, cert_path] ->
+        cert_import(org, product, device, cert_path, opts)
+
       ["update", identifier | update_data] ->
         update(org, product, identifier, update_data)
 
@@ -399,7 +402,7 @@ defmodule Mix.Tasks.NervesHub.Device do
   def cert_list(org, product, identifier) do
     auth = Shell.request_auth()
 
-    case NervesHubUserAPI.Device.cert_list(org, product, identifier, auth) do
+    case NervesHubUserAPI.DeviceCertificate.list(org, product, identifier, auth) do
       {:ok, %{"data" => certs}} ->
         render_certs(identifier, certs)
 
@@ -439,6 +442,27 @@ defmodule Mix.Tasks.NervesHub.Device do
          :ok <- File.write(Path.join(path, "#{identifier}-key.pem"), pem_key) do
       Shell.info("Finished")
       :ok
+    else
+      error ->
+        Shell.render_error(error)
+    end
+  end
+
+  @spec cert_import(
+          String.t(),
+          String.t(),
+          String.t(),
+          String.t(),
+          keyword()
+        ) :: :ok
+  def cert_import(org, product, identifier, cert_path, _opts) do
+    Shell.info("Importing certificate for #{identifier}")
+
+    with {:ok, cert_pem} <- File.read(cert_path),
+         auth <- Shell.request_auth(),
+         {:ok, %{"data" => %{"serial" => serial}}} <-
+           NervesHubUserAPI.DeviceCertificate.create(org, product, identifier, cert_pem, auth) do
+      Shell.info("Device certificate '#{serial}' registered.")
     else
       error ->
         Shell.render_error(error)
@@ -556,7 +580,7 @@ defmodule Mix.Tasks.NervesHub.Device do
 
     with safe_csr <- Base.encode64(pem_csr),
          {:ok, %{"data" => %{"cert" => cert}}} <-
-           NervesHubUserAPI.Device.cert_sign(org, product, id, safe_csr, auth) do
+           NervesHubUserAPI.DeviceCertificate.sign(org, product, id, safe_csr, auth) do
       {:ok, cert}
     end
   end

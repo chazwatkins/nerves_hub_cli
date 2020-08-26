@@ -5,4 +5,5 @@ config :nerves_hub_cli,
 
 config :nerves_hub_user_api,
   host: "0.0.0.0",
-  port: 4002
+  port: 4002,
+  server_name_indication: :disable
